@@ -23,11 +23,11 @@ THREE.SAOPass = function ( scene, camera, depthTexture, useNormals, resolution )
 	this.params = {
 		output: 0,
 		saoBias: 0.5,
-		saoIntensity: 0.01,
-		saoScale: 10,
+		saoIntensity: 0.1,
+		saoScale: 30,
 		saoKernelRadius: 100,
 		saoMinResolution: 0,
-		saoBlur: true,
+		saoBlur: false,
 		saoBlurRadius: 5,
 		saoBlurStdDev: 4,
 		saoBlurDepthCutoff: 0.001
@@ -208,7 +208,7 @@ THREE.SAOPass.prototype = Object.assign( Object.create( THREE.Pass.prototype ), 
 		this.saoMaterial.uniforms[ 'minResolution' ].value = this.params.saoMinResolution;
 		this.saoMaterial.uniforms[ 'cameraNear' ].value = this.camera.near;
 		this.saoMaterial.uniforms[ 'cameraFar' ].value = this.camera.far;
-		// this.saoMaterial.uniforms['randomSeed'].value = Math.random();
+		//this.saoMaterial.uniforms['randomSeed'].value = Math.random();
 
 		var depthCutoff = this.params.saoBlurDepthCutoff * ( this.camera.far - this.camera.near );
 		this.vBlurMaterial.uniforms[ 'depthCutoff' ].value = depthCutoff;

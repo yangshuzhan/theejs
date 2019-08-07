@@ -224,6 +224,38 @@
 	var saoPass = new THREE.SAOPass( scene, camera, false, true );
 	composer.addPass( saoPass );
 
+	//
+	const colorShader = {
+    uniforms: {
+      tDiffuse: { value: null },
+      tNormal: { value: null },
+      color:    { value: new THREE.Color(0x88CCFF) },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 color;
+      uniform sampler2D tDiffuse;
+	  uniform sampler2D tNormal;
+      varying vec2 vUv;
+      void main() {
+        vec4 previousPassColor = texture2D(tDiffuse, vUv);
+		
+
+		
+       gl_FragColor = vec4(
+            previousPassColor.rgb * color,
+            previousPassColor.a);
+      }
+    `,
+ 	 };
+	 const colorPass = new THREE.ShaderPass(colorShader);
+  composer.addPass(colorPass);
 
 	
 	
@@ -241,6 +273,7 @@
 	{
 	
 	const folder=gui.addFolder('SAOPass');
+	folder.add( saoPass.params, 'saoBias', 0, 1 ).name('saoBias');
 	folder.add( saoPass.params, 'saoIntensity', 0, .1 ).name('saoIntensity');
 	folder.add( saoPass.params, 'saoScale', 0, 50 ).name('saoScale');
 	folder.add( saoPass.params, 'saoKernelRadius', 0, 200 ).name('saoKernelRadius');
@@ -258,6 +291,11 @@
 	folder3.add(bloomPass,'radius',0,1).name('radius');
 	folder3.add(bloomPass,'threshold',0.0,1.0).name('threshold');
 	folder3.open();
+	const folder4=gui.addFolder('color');
+	folder4.add(colorPass.uniforms.color.value, 'r', 0, 4).name('red');
+	folder4.add(colorPass.uniforms.color.value, 'g', 0, 4).name('green');
+	folder4.add(colorPass.uniforms.color.value, 'b', 0, 4).name('blue');
+	folder4.open();
 	}
 	
 	
