@@ -22,6 +22,13 @@ THREE.EffectComposer = function ( renderer, renderTarget ) {
 
 		renderTarget = new THREE.WebGLRenderTarget( this._width * this._pixelRatio, this._height * this._pixelRatio, parameters );
 		renderTarget.texture.name = 'EffectComposer.rt1';
+		
+		
+		var depthTexture = new THREE.DepthTexture();
+		depthTexture.type = THREE.UnsignedShortType;
+		depthTexture.minFilter = THREE.LinearFilter;
+		depthTexture.maxFilter = THREE.LinearFilter;
+		renderTarget.depthTexture = depthTexture;
 
 	} else {
 

@@ -31,7 +31,7 @@ THREE.SSAOPass = function ( scene, camera, width, height ) {
 	// beauty render target with depth buffer
 
 	var depthTexture = new THREE.DepthTexture();
-	depthTexture.type = THREE.UnsignedShortType;
+	depthTexture.type = THREE.IntType;
 	depthTexture.minFilter = THREE.LinearFilter;
 	depthTexture.maxFilter = THREE.LinearFilter;
 

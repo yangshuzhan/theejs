@@ -17,6 +17,9 @@
 	<script src="js/GLTFLoader.js"></script>
 	<script src="js/EXRLoader.js"></script>
 	<script src="js/EquirectangularToCubeGenerator.js"></script>
+	<script src="js/PMREMGenerator.js"></script>
+	<script src="js/PMREMCubeUVPacker.js"></script>
+	
 	<script src="js/EffectComposer.js"></script>
 	<script src="js/ShaderPass.js"></script>
 	<script src="js/RenderPass.js"></script>
@@ -38,6 +41,8 @@
 	<script src="js/UnrealBloomPass.js"></script>
 	<script src="js/LuminosityHighPassShader.js"></script>
 	
+	<script src="js/MaskPass.js"></script>
+	
 	<script type="xshader-vertex" id="vertexshader">
 		void main()
 		{
@@ -56,7 +61,8 @@
 	
 	<script>
 	var scene = new THREE.Scene();
-	var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight,0.1, 1000);
+	scene.background = new THREE.Color( 0xFFFFFF );
+	var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight,5, 500);
 
 
 	
@@ -89,21 +95,34 @@
 	var textureCube=new THREE.CubeTextureLoader().load(urls);*/
 	
 	
-	//加载equirec环境贴图
-	var textureEquirec;
-	var textureLoader = new THREE.TextureLoader();
-	
-	textureEquirec = textureLoader.load( "img/3.jpg" );
-	
-	textureEquirec.anisotropy = maxAnisotropy;
-	
-	textureEquirec.mapping = THREE.EquirectangularReflectionMapping;
-	textureEquirec.magFilter = THREE.LinearFilter;
-	textureEquirec.minFilter = THREE.LinearFilter;
-	textureEquirec.encoding = THREE.sRGBEncoding;
-	
+	//加载exr环境贴图
+	new THREE.EXRLoader()
+					.setType( THREE.FloatType )
+					.load( 'img/2.exr', function ( texture ) {
+
+						texture.minFilter = THREE.NearestFilter;
+						// texture.magFilter = THREE.NearestFilter;
+						texture.encoding = THREE.LinearEncoding;
+
+						var cubemapGenerator = new THREE.EquirectangularToCubeGenerator( texture, { resolution: 512, type: THREE.HalfFloatType } );
+						exrBackground = cubemapGenerator.renderTarget;
+						var cubeMapTexture = cubemapGenerator.update( renderer );
+
+						var pmremGenerator = new THREE.PMREMGenerator( cubeMapTexture );
+						pmremGenerator.update( renderer );
+
+						var pmremCubeUVPacker = new THREE.PMREMCubeUVPacker( pmremGenerator.cubeLods );
+						pmremCubeUVPacker.update( renderer );
+
+						exrCubeRenderTarget = pmremCubeUVPacker.CubeUVRenderTarget;
+
+						texture.dispose();
+						pmremGenerator.dispose();
+						pmremCubeUVPacker.dispose();
+
+					} );
 	//load model
-	//为每一个物体应用环境贴图
+
 	const loader=new THREE.GLTFLoader();
 	const url = 'untitled.glb';
 	var root;
@@ -136,8 +155,9 @@
 	 cube.material.transparent=true;
 	 
 	 };
-	 cube.material.envMap=textureEquirec;
-	 cube.material.envMapIntensity=3;
+	 	//为每一个物体应用环境贴图
+	 cube.material.envMap=exrCubeRenderTarget.texture;
+	 cube.material.envMapIntensity=2;
 	 
 	 
 	 cube.castShadow=true;
@@ -213,44 +233,74 @@
 	
 	//smaa
 
-			var pass = new THREE.SMAAPass( window.innerWidth * renderer.getPixelRatio(), window.innerHeight * renderer.getPixelRatio() );
-			composer.addPass( pass );
+			//var pass = new THREE.SMAAPass( window.innerWidth * renderer.getPixelRatio(), window.innerHeight * renderer.getPixelRatio() );
+			//composer.addPass( pass );
 	//fxaa
 			
-	
+	//ssaa
+	ssaaRenderPass = new THREE.SSAARenderPass( scene, camera );
+	ssaaRenderPass.unbiased = true;
+	composer.addPass( ssaaRenderPass );
 
 	
 	//sao
 	var saoPass = new THREE.SAOPass( scene, camera, false, true );
 	composer.addPass( saoPass );
 
-	//
+	//change color
 	const colorShader = {
     uniforms: {
       tDiffuse: { value: null },
       tNormal: { value: null },
-      color:    { value: new THREE.Color(0x88CCFF) },
+      tDepth: { value: composer.renderTarget1.depthTexture },
+      color:    { value: new THREE.Color(0xFFFFFF) },
+
     },
     vertexShader: `
       varying vec2 vUv;
+	  varying vec3 viewZ;
       void main() {
         vUv = uv;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1);
+		viewZ=-(modelViewMatrix*vec4(position.xyz,1.)).xyz;
       }
     `,
     fragmentShader: `
+	  #include <common>
+	  #include <packing>
       uniform vec3 color;
       uniform sampler2D tDiffuse;
 	  uniform sampler2D tNormal;
+	  uniform sampler2D tDepth;
       varying vec2 vUv;
-      void main() {
-        vec4 previousPassColor = texture2D(tDiffuse, vUv);
-		
+	  varying vec3 viewZ;
+	  float deta=0.005;
+	  const float num=10.0;
+	  float angle;
+	  float weight;
+	  const float sampleangle=10.0;
 
+      void main() {
+	  
+	 	//angle=rand(vUv)*6.28;
+		vec3 previousPassColor = texture2D( tDiffuse, vUv ).rgb;	
 		
-       gl_FragColor = vec4(
-            previousPassColor.rgb * color,
-            previousPassColor.a);
+		/*
+		for(float i=1.0;i<num;i++)
+		{	
+		weight=(num-i+1.0)*2.0/(num*num+num);
+		for(float j=0.0;j<sampleangle;j++) 
+		{
+        previousPassColor += texture2D(tDiffuse, vec2(vUv.x+deta*i*cos(angle+j*6.28/sampleangle),vUv.y+deta*i*sin(angle+j*6.28/sampleangle)))*weight/sampleangle;	
+		}		
+		}
+		*/
+		//float z=gl_FragCoord.y;
+		
+		
+       gl_FragColor.rgb = previousPassColor*color;
+
+				gl_FragColor.a = 1.0;
       }
     `,
  	 };
@@ -266,15 +316,23 @@
 	bloomPass.radius = 0.1;
 	composer.addPass( bloomPass );
 	
+	//mask
+	//var maskPass = new THREE.MaskPass( scene, camera );
+	//var clearMaskPass = new THREE.ClearMaskPass();
+	//composer.addPass( maskPass );
+	//composer.addPass( clearMaskPass );
 	
-	bloomPass.renderToScreen=true;	
+	bloomPass.renderToScreen=true;
+
+
+	
 	//gui
 	const gui=new dat.GUI();
 	{
 	
 	const folder=gui.addFolder('SAOPass');
 	folder.add( saoPass.params, 'saoBias', 0, 1 ).name('saoBias');
-	folder.add( saoPass.params, 'saoIntensity', 0, .1 ).name('saoIntensity');
+	folder.add( saoPass.params, 'saoIntensity', 0, .5 ).name('saoIntensity');
 	folder.add( saoPass.params, 'saoScale', 0, 50 ).name('saoScale');
 	folder.add( saoPass.params, 'saoKernelRadius', 0, 200 ).name('saoKernelRadius');
 	folder.add( saoPass.params, 'saoBlur', 0, 1 ).name('saoBlur');
@@ -296,9 +354,21 @@
 	folder4.add(colorPass.uniforms.color.value, 'g', 0, 4).name('green');
 	folder4.add(colorPass.uniforms.color.value, 'b', 0, 4).name('blue');
 	folder4.open();
+	const folder5=gui.addFolder('抗锯齿');
+	var param = {
+				sampleLevel: 2
+			};
+	folder5.add( param, 'sampleLevel', {
+					'Level 0: 1 Sample': 0,
+					'Level 1: 2 Samples': 1,
+					'Level 2: 4 Samples': 2,
+					'Level 3: 8 Samples': 3,
+					'Level 4: 16 Samples': 4,
+					'Level 5: 32 Samples': 5
+				} );
 	}
 	
-	
+	console.log(composer);
 	
 	
 	
@@ -311,7 +381,7 @@
 	
 	var GameLoop = function()
 	{
-
+	ssaaRenderPass.sampleLevel = param.sampleLevel;
 	requestAnimationFrame(GameLoop);
 	update();
 	render();
