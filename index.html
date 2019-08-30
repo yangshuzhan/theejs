@@ -32,7 +32,6 @@
 	<script src="js/SMAAPass.js"></script>
 	<script src="js/SMAAShader.js"></script>
 	<script src="js/SSAARenderPass.js"></script>
-	<script src="js/CopyShader.js"></script>
 	<script src="js/SAOPass.js"></script>
 	<script src="js/SAOShader.js"></script>
 	<script src="js/DepthLimitedBlurShader.js"></script>
@@ -40,6 +39,7 @@
 	<script src="js/dat.gui.min.js"></script>
 	<script src="js/UnrealBloomPass.js"></script>
 	<script src="js/LuminosityHighPassShader.js"></script>
+	<script src="js/FXAAShader.js"></script>
 	
 	<script src="js/MaskPass.js"></script>
 	
@@ -62,7 +62,7 @@
 	<script>
 	var scene = new THREE.Scene();
 	scene.background = new THREE.Color( 0xFFFFFF );
-	var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight,5, 500);
+	var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight,1, 50);
 
 
 	
@@ -81,7 +81,7 @@
 	camera.updateProjectionMatrix();
 	composer.setSize( width, height );
 	})
-	camera.position.z=200;
+	camera.position.z=20;
 	controls=new THREE.OrbitControls(camera,renderer.domElement);
 	
 	
@@ -96,6 +96,7 @@
 	
 	
 	//加载exr环境贴图
+	var exrCubeRenderTarget;
 	new THREE.EXRLoader()
 					.setType( THREE.FloatType )
 					.load( 'img/2.exr', function ( texture ) {
@@ -208,11 +209,11 @@
 	light.castShadow = true;
 	scene.add( light );
 	
-	light.shadow = new THREE.LightShadow( new THREE.PerspectiveCamera( 30, 1, 1000, 5000) );
-	light.shadow.bias = -0.001;
+	//light.shadow = new THREE.LightShadow( new THREE.PerspectiveCamera( 30, 1, 1000, 5000) );
+	//light.shadow.bias = -0.001;
 
-	light.shadow.mapSize.width = 512;
-	light.shadow.mapSize.height = 512;
+	//light.shadow.mapSize.width = 512;
+	//light.shadow.mapSize.height = 512;
 
 	
 
@@ -231,22 +232,28 @@
 	composer.addPass(renderPass);
 		
 	
-	//smaa
-
-			//var pass = new THREE.SMAAPass( window.innerWidth * renderer.getPixelRatio(), window.innerHeight * renderer.getPixelRatio() );
-			//composer.addPass( pass );
-	//fxaa
-			
-	//ssaa
-	ssaaRenderPass = new THREE.SSAARenderPass( scene, camera );
-	ssaaRenderPass.unbiased = true;
-	composer.addPass( ssaaRenderPass );
 
 	
+
+	//ssaa
+	var ssaaRenderPass = new THREE.SSAARenderPass( scene, camera );
+	ssaaRenderPass.unbiased = true;
+	composer.addPass( ssaaRenderPass );
 	//sao
-	var saoPass = new THREE.SAOPass( scene, camera, false, true );
+	var saoPass = new THREE.SAOPass( scene, camera, true, true ,);
 	composer.addPass( saoPass );
 
+//fxaa
+			
+			var fxaaPass = new THREE.ShaderPass( THREE.FXAAShader );
+
+				var pixelRatio = renderer.getPixelRatio();
+
+				fxaaPass.material.uniforms[ 'resolution' ].value.x = 1 / ( document.body.offsetWidth * pixelRatio );
+				fxaaPass.material.uniforms[ 'resolution' ].value.y = 1 / ( document.body.offsetHeight * pixelRatio );
+				composer.addPass( fxaaPass );
+				
+				
 	//change color
 	const colorShader = {
     uniforms: {
@@ -312,16 +319,18 @@
 	//bloom
 	var bloomPass = new THREE.UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );
 	bloomPass.threshold = 0.1;
-	bloomPass.strength = 1.0;
+	bloomPass.strength = 0.1;
 	bloomPass.radius = 0.1;
 	composer.addPass( bloomPass );
 	
+	copyPass = new THREE.ShaderPass( THREE.CopyShader );
+				composer.addPass( copyPass );
 	//mask
 	//var maskPass = new THREE.MaskPass( scene, camera );
 	//var clearMaskPass = new THREE.ClearMaskPass();
 	//composer.addPass( maskPass );
 	//composer.addPass( clearMaskPass );
-	
+
 	bloomPass.renderToScreen=true;
 
 
@@ -331,9 +340,10 @@
 	{
 	
 	const folder=gui.addFolder('SAOPass');
-	folder.add( saoPass.params, 'saoBias', 0, 1 ).name('saoBias');
-	folder.add( saoPass.params, 'saoIntensity', 0, .5 ).name('saoIntensity');
+	folder.add( saoPass.params, 'saoBias', 0, 10 ).name('saoBias');
+	folder.add( saoPass.params, 'saoIntensity', 0, 5 ).name('saoIntensity');
 	folder.add( saoPass.params, 'saoScale', 0, 50 ).name('saoScale');
+	folder.add( saoPass.params, 'saoMinResolution', 0.0, 0.1 ).name('saoMinResolution');
 	folder.add( saoPass.params, 'saoKernelRadius', 0, 200 ).name('saoKernelRadius');
 	folder.add( saoPass.params, 'saoBlur', 0, 1 ).name('saoBlur');
 	folder.add( saoPass.params, 'saoBlurRadius', 0, 10 ).name('saoBlurRadius');

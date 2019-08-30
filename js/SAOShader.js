@@ -4,7 +4,7 @@
 
 THREE.SAOShader = {
 	defines: {
-		'NUM_SAMPLES': 32,
+		'NUM_SAMPLES': 16,
 		'NUM_RINGS': 10,
 		'NORMAL_TEXTURE': 0,
 		'DIFFUSE_TEXTURE': 0,
@@ -16,7 +16,7 @@ THREE.SAOShader = {
 		'tDepth': { value: null },
 		'tDiffuse': { value: null },
 		'tNormal': { value: null },
-		'size': { value: new THREE.Vector2( 512, 512 ) },
+		'size': { value: new THREE.Vector2( 2048, 2048 ) },
 
 		'cameraNear': { value: 1 },
 		'cameraFar': { value: 100 },

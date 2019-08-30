@@ -9,8 +9,7 @@ THREE.CopyShader = {
 	uniforms: {
 
 		"tDiffuse": { value: null },
-		"opacity":  { value: 1.0 },
-		"tDepth":	{value:	null}
+		"opacity":  { value: 1.0 }
 
 	},
 

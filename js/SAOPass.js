@@ -13,8 +13,8 @@ THREE.SAOPass = function ( scene, camera, depthTexture, useNormals, resolution )
 	this.clear = true;
 	this.needsSwap = false;
 
-	this.supportsDepthTextureExtension = ( depthTexture !== undefined ) ? depthTexture : false;
-	this.supportsNormalTexture = ( useNormals !== undefined ) ? useNormals : false;
+	this.supportsDepthTextureExtension = ( depthTexture !== undefined ) ? depthTexture : true;
+	this.supportsNormalTexture = ( useNormals !== undefined ) ? useNormals : true;
 
 	this.originalClearColor = new THREE.Color();
 	this.oldClearColor = new THREE.Color();
@@ -33,7 +33,7 @@ THREE.SAOPass = function ( scene, camera, depthTexture, useNormals, resolution )
 		saoBlurDepthCutoff: 0.001
 	};
 
-	this.resolution = ( resolution !== undefined ) ? new THREE.Vector2( resolution.x, resolution.y ) : new THREE.Vector2( 256, 256 );
+	this.resolution = ( resolution !== undefined ) ? new THREE.Vector2( resolution.x, resolution.y ) : new THREE.Vector2( 1024, 1024 );
 
 	this.saoRenderTarget = new THREE.WebGLRenderTarget( this.resolution.x, this.resolution.y, {
 		minFilter: THREE.LinearFilter,
